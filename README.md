@@ -184,7 +184,7 @@ The app matches users based on:
 
 ## Screenshots
 
-[Add screenshots here]
+--
 
 ## Contributing
 
@@ -200,7 +200,7 @@ This project is created for educational purposes.
 
 ## Authors
 
-[Your Name/Team Name]
+Aryan Prashant Agrawal
 
 ## Acknowledgments
 

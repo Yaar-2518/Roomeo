@@ -1,0 +1,16 @@
+# General
+.DS_Store
+.vscode/
+.idea/
+*.log
+*.swp
+*.swo
+
+# Environment variables
+.env
+backend/.env
+mobile/.env
+
+# Editor directories
+.vscode/
+.idea/

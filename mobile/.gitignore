@@ -1,0 +1,54 @@
+# Expo
+.expo
+.expo-shared
+dist/
+web-build/
+
+# Dependencies
+node_modules/
+
+# Environment variables (NEVER COMMIT THIS)
+.env
+.env.local
+.env.*.local
+
+# Native builds
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# System files
+.DS_Store
+Thumbs.db
+*.swp
+*.pem
+
+# Typescript
+*.tsbuildinfo
+
+# Android
+*.apk
+*.aab
+android/app/build
+android/.gradle
+
+# iOS
+ios/Pods
+ios/build
+*.xcworkspace
+!default.xcworkspace
+
+# IDE
+.vscode/
+.idea/

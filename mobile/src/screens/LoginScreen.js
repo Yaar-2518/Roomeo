@@ -5,24 +5,25 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import CustomModal from '../components/CustomModal';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
   const { login } = useAuth();
   const { theme } = useTheme();
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setErrorModal({ visible: true, message: 'Please fill in all fields' });
       return;
     }
 
@@ -30,7 +31,10 @@ export default function LoginScreen({ navigation }) {
     try {
       await login(email, password);
     } catch (error) {
-      Alert.alert('Login Failed', error.response?.data?.error || 'Something went wrong');
+      setErrorModal({ 
+        visible: true, 
+        message: error.response?.data?.error || 'Something went wrong' 
+      });
     } finally {
       setLoading(false);
     }
@@ -86,12 +90,27 @@ export default function LoginScreen({ navigation }) {
           </LinearGradient>
         </TouchableOpacity>
 
+        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} style={{ marginTop: 15 }}>
+          <Text style={[styles.link, { color: '#f0f0f0' }]}>
+            <Text style={[styles.linkBold, { color: '#fff' }]}>Forgot Password?</Text>
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
           <Text style={[styles.link, { color: '#f0f0f0' }]}>
             Don't have an account? <Text style={[styles.linkBold, { color: '#fff' }]}>Sign Up</Text>
           </Text>
         </TouchableOpacity>
       </View>
+
+      <CustomModal
+        visible={errorModal.visible}
+        onClose={() => setErrorModal({ visible: false, message: '' })}
+        title="Login Failed"
+        message={errorModal.message}
+        type="error"
+        confirmText="OK"
+      />
     </KeyboardAvoidingView>
   );
 }

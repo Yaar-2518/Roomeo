@@ -11,6 +11,8 @@ router.post('/send-otp', async (req, res) => {
   try {
     const { email } = req.body;
 
+    console.log('Send OTP request for:', email);
+
     // Check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -19,6 +21,7 @@ router.post('/send-otp', async (req, res) => {
 
     // Generate OTP
     const otp = generateOTP();
+    console.log('Generated OTP:', otp);
 
     // Delete any existing OTPs for this email
     await OTP.deleteMany({ email });
@@ -26,13 +29,22 @@ router.post('/send-otp', async (req, res) => {
     // Save OTP to database
     const otpDoc = new OTP({ email, otp });
     await otpDoc.save();
+    console.log('OTP saved to database');
 
     // Send OTP email
+    console.log('Attempting to send email...');
     const emailSent = await sendOTPEmail(email, otp);
+    
     if (!emailSent) {
-      return res.status(500).json({ error: 'Failed to send OTP email' });
+      console.log('⚠️ Email failed, but OTP saved. OTP:', otp);
+      // Return success anyway for development - OTP is logged
+      return res.json({ 
+        message: 'OTP generated (check server console)',
+        devNote: 'Email service unavailable, OTP logged in server console'
+      });
     }
 
+    console.log('✓ OTP sent successfully');
     res.json({ message: 'OTP sent successfully to your email' });
   } catch (error) {
     console.error('Send OTP error:', error);
@@ -108,22 +120,32 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user
-    const user = await User.findOne({ email });
+    console.log('Login attempt for:', email);
+
+    // Find user and populate profile
+    const user = await User.findOne({ email }).populate('profile');
     if (!user) {
+      console.log('User not found:', email);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+
+    console.log('User found, checking password...');
 
     // Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      console.log('Password mismatch for:', email);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+
+    console.log('Password correct, generating token...');
 
     // Create token
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: '30d'
     });
+
+    console.log('✓ Login successful for:', email);
 
     res.json({
       message: 'Login successful!',
@@ -132,10 +154,12 @@ router.post('/login', async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        hasCompletedProfile: user.hasCompletedProfile
+        hasCompletedProfile: user.hasCompletedProfile,
+        profile: user.profile
       }
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed. Please try again.' });
   }
 });
@@ -171,6 +195,101 @@ router.put('/update-name', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update name' });
+  }
+});
+
+// Send OTP for password reset
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    console.log('Forgot password request for:', email);
+
+    // Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email' });
+    }
+
+    // Generate OTP
+    const otp = generateOTP();
+    console.log('Generated password reset OTP:', otp);
+
+    // Delete any existing OTPs for this email
+    await OTP.deleteMany({ email });
+
+    // Save OTP to database
+    const otpDoc = new OTP({ email, otp });
+    await otpDoc.save();
+    console.log('Password reset OTP saved to database');
+
+    // Send OTP email
+    console.log('Attempting to send password reset email...');
+    const emailSent = await sendOTPEmail(email, otp, 'Password Reset');
+    
+    if (!emailSent) {
+      console.log('⚠️ Email failed, but OTP saved. OTP:', otp);
+      return res.json({ 
+        message: 'OTP generated (check server console)',
+        devNote: 'Email service unavailable, OTP logged in server console'
+      });
+    }
+
+    console.log('✓ Password reset OTP sent successfully');
+    res.json({ message: 'Password reset OTP sent to your email' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to send password reset OTP' });
+  }
+});
+
+// Verify OTP for password reset
+router.post('/verify-reset-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    // Find OTP
+    const otpDoc = await OTP.findOne({ email, otp });
+    if (!otpDoc) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    res.json({ message: 'OTP verified successfully', verified: true });
+  } catch (error) {
+    console.error('Verify reset OTP error:', error);
+    res.status(500).json({ error: 'Failed to verify OTP' });
+  }
+});
+
+// Reset password (after OTP verification)
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    // Verify OTP one more time
+    const otpDoc = await OTP.findOne({ email, otp });
+    if (!otpDoc) {
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
+    }
+
+    // Find user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update password (will be hashed by pre-save hook)
+    user.password = newPassword;
+    await user.save();
+
+    // Delete OTP after successful password reset
+    await OTP.deleteOne({ _id: otpDoc._id });
+
+    console.log('✓ Password reset successful for:', email);
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 

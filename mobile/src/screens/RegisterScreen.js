@@ -5,12 +5,12 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   ActivityIndicator
 } from 'react-native';
+import CustomModal from '../components/CustomModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -26,6 +26,8 @@ export default function RegisterScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  const [successModal, setSuccessModal] = useState({ visible: false, message: '' });
   const [touched, setTouched] = useState({
     name: false,
     email: false,
@@ -71,12 +73,12 @@ export default function RegisterScreen({ navigation }) {
 
   const handleSendOTP = async () => {
     if (!email) {
-      Alert.alert('Error', 'Please enter your email');
+      setErrorModal({ visible: true, message: 'Please enter your email' });
       return;
     }
 
     if (!isEmailValid) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      setErrorModal({ visible: true, message: 'Please enter a valid email address' });
       return;
     }
 
@@ -84,9 +86,9 @@ export default function RegisterScreen({ navigation }) {
     try {
       await api.post('/auth/send-otp', { email });
       setOtpSent(true);
-      Alert.alert('Success', 'OTP sent to your email!');
+      setSuccessModal({ visible: true, message: 'OTP sent to your email!' });
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to send OTP');
+      setErrorModal({ visible: true, message: error.response?.data?.error || 'Failed to send OTP' });
     } finally {
       setLoading(false);
     }
@@ -94,7 +96,7 @@ export default function RegisterScreen({ navigation }) {
 
   const handleVerifyOTP = async () => {
     if (!otp || otp.length !== 6) {
-      Alert.alert('Error', 'Please enter the 6-digit OTP');
+      setErrorModal({ visible: true, message: 'Please enter the 6-digit OTP' });
       return;
     }
 
@@ -103,9 +105,9 @@ export default function RegisterScreen({ navigation }) {
       await api.post('/auth/verify-otp', { email, otp });
       setOtpVerified(true);
       setStep(2);
-      Alert.alert('Success', 'Email verified! Complete your registration.');
+      setSuccessModal({ visible: true, message: 'Email verified! Complete your registration.' });
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.error || 'Invalid OTP');
+      setErrorModal({ visible: true, message: error.response?.data?.error || 'Invalid OTP' });
     } finally {
       setLoading(false);
     }
@@ -126,17 +128,17 @@ export default function RegisterScreen({ navigation }) {
     }
 
     if (!isEmailValid) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      setErrorModal({ visible: true, message: 'Please enter a valid email address' });
       return;
     }
 
     if (!passwordValidation.isValid) {
-      Alert.alert('Error', 'Please meet all password requirements');
+      setErrorModal({ visible: true, message: 'Please meet all password requirements' });
       return;
     }
 
     if (!passwordsMatch) {
-      Alert.alert('Error', 'Passwords do not match');
+      setErrorModal({ visible: true, message: 'Passwords do not match' });
       return;
     }
 
@@ -144,7 +146,7 @@ export default function RegisterScreen({ navigation }) {
     try {
       await register(name, email, password, otpVerified);
     } catch (error) {
-      Alert.alert('Registration Failed', error.response?.data?.error || 'Something went wrong');
+      setErrorModal({ visible: true, message: error.response?.data?.error || 'Something went wrong' });
     } finally {
       setLoading(false);
     }
@@ -400,6 +402,24 @@ export default function RegisterScreen({ navigation }) {
         </>
         )}
       </ScrollView>
+
+      <CustomModal
+        visible={errorModal.visible}
+        onClose={() => setErrorModal({ visible: false, message: '' })}
+        title="Error"
+        message={errorModal.message}
+        type="error"
+        confirmText="OK"
+      />
+
+      <CustomModal
+        visible={successModal.visible}
+        onClose={() => setSuccessModal({ visible: false, message: '' })}
+        title="Success"
+        message={successModal.message}
+        type="success"
+        confirmText="OK"
+      />
     </KeyboardAvoidingView>
   );
 }const styles = StyleSheet.create({

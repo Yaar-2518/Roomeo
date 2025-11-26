@@ -5,20 +5,26 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   Switch,
-  Modal
+  Modal,
+  Linking
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import CustomModal from '../components/CustomModal';
 import api from '../api';
 
 export default function ProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [aboutVisible, setAboutVisible] = useState(false);
+  const [logoutModal, setLogoutModal] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  const [successModal, setSuccessModal] = useState({ visible: false, message: '' });
 
   const calculateAge = (dateOfBirth) => {
     if (!dateOfBirth) return 'N/A';
@@ -48,50 +54,34 @@ export default function ProfileScreen({ navigation }) {
 
   const handleLogout = () => {
     setMenuVisible(false);
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Logout',
-          onPress: async () => {
-            await logout();
-          },
-          style: 'destructive'
-        }
-      ]
-    );
+    setTimeout(() => setLogoutModal(true), 300);
+  };
+
+  const confirmLogout = async () => {
+    setLogoutModal(false);
+    await logout();
   };
 
   const handleDeleteAccount = () => {
     setMenuVisible(false);
-    Alert.alert(
-      'Delete Account',
-      'Are you absolutely sure? This action cannot be undone. All your data will be permanently deleted.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Delete',
-          onPress: async () => {
-            try {
-              await api.delete('/auth/delete-account');
-              Alert.alert('Success', 'Account deleted successfully');
-              await logout();
-            } catch (error) {
-              Alert.alert('Error', error.response?.data?.error || 'Failed to delete account');
-            }
-          },
-          style: 'destructive'
-        }
-      ]
-    );
+    setTimeout(() => setDeleteModal(true), 300);
+  };
+
+  const confirmDelete = async () => {
+    setDeleteModal(false);
+    try {
+      await api.delete('/auth/delete-account');
+      setSuccessModal({ visible: true, message: 'Account deleted successfully' });
+      setTimeout(async () => {
+        setSuccessModal({ visible: false, message: '' });
+        await logout();
+      }, 2000);
+    } catch (error) {
+      setErrorModal({ 
+        visible: true, 
+        message: error.response?.data?.error || 'Failed to delete account' 
+      });
+    }
   };
 
   return (
@@ -113,14 +103,14 @@ export default function ProfileScreen({ navigation }) {
           onPress={() => setMenuVisible(true)}
           activeOpacity={0.7}
         >
-          <Ionicons name="menu" size={28} color="#fff" />
+          <Ionicons name="menu" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.title}>Profile</Text>
         <View style={{ width: 40 }} />
       </LinearGradient>
 
       {/* Main Content */}
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <View style={[styles.infoCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
           <Ionicons name="person" size={20} color={theme.textSecondary} style={styles.cardIcon} />
           <View style={styles.cardContent}>
@@ -186,8 +176,8 @@ export default function ProfileScreen({ navigation }) {
               <Text style={[styles.label, { color: theme.textSecondary }]}>Hobbies</Text>
               <View style={styles.hobbiesContainer}>
                 {user.profile.hobbies.map((hobby, index) => (
-                  <View key={index} style={[styles.hobbyTag, { backgroundColor: theme.primary }]}>
-                    <Text style={styles.hobbyTagText}>{hobby}</Text>
+                  <View key={index} style={[styles.hobbyTag, { backgroundColor: `${theme.primary}20`, borderColor: theme.primary, borderWidth: 1 }]}>
+                    <Text style={[styles.hobbyTagText, { color: theme.primary }]}>{hobby}</Text>
                   </View>
                 ))}
               </View>
@@ -200,10 +190,12 @@ export default function ProfileScreen({ navigation }) {
             <Ionicons name="moon" size={20} color={theme.textSecondary} style={styles.cardIcon} />
             <View style={styles.cardContent}>
               <Text style={[styles.label, { color: theme.textSecondary }]}>Sleep Schedule</Text>
-              <Text style={[styles.value, { color: theme.text }]}>
-                {user.profile.sleepSchedule === 'early-bird' ? '🌅 Early Bird' : 
-                 user.profile.sleepSchedule === 'night-owl' ? '🌙 Night Owl' : '🔄 Flexible'}
-              </Text>
+              <View style={[styles.preferenceTag, { backgroundColor: `${theme.primary}20`, borderColor: theme.primary, borderWidth: 1 }]}>
+                <Text style={[styles.preferenceText, { color: theme.primary }]}>
+                  {user.profile.sleepSchedule === 'early-bird' ? '🌅 Early Bird' : 
+                   user.profile.sleepSchedule === 'night-owl' ? '🌙 Night Owl' : '🔄 Flexible'}
+                </Text>
+              </View>
             </View>
           </View>
         )}
@@ -213,7 +205,9 @@ export default function ProfileScreen({ navigation }) {
             <Ionicons name="sparkles" size={20} color={theme.textSecondary} style={styles.cardIcon} />
             <View style={styles.cardContent}>
               <Text style={[styles.label, { color: theme.textSecondary }]}>Cleanliness</Text>
-              <Text style={[styles.value, { color: theme.text }]}>{'⭐'.repeat(user.profile.cleanliness)}</Text>
+              <View style={[styles.preferenceTag, { backgroundColor: `${theme.primary}20`, borderColor: theme.primary, borderWidth: 1 }]}>
+                <Text style={[styles.preferenceText, { color: theme.primary }]}>{'⭐'.repeat(user.profile.cleanliness)}</Text>
+              </View>
             </View>
           </View>
         )}
@@ -223,11 +217,13 @@ export default function ProfileScreen({ navigation }) {
             <Ionicons name="wallet" size={20} color={theme.textSecondary} style={styles.cardIcon} />
             <View style={styles.cardContent}>
               <Text style={[styles.label, { color: theme.textSecondary }]}>Budget</Text>
-              <Text style={[styles.value, { color: theme.text }]}>
-                {user.profile.budget === 'low' ? '💰 $500-$800/month' : 
-                 user.profile.budget === 'medium' ? '💰💰 $800-$1200/month' : 
-                 user.profile.budget === 'high' ? '💰💰💰 $1200+/month' : 'N/A'}
-              </Text>
+              <View style={[styles.preferenceTag, { backgroundColor: `${theme.primary}20`, borderColor: theme.primary, borderWidth: 1 }]}>
+                <Text style={[styles.preferenceText, { color: theme.primary }]}>
+                  {user.profile.budget === 'low' ? '💰 $500-$800/month' : 
+                   user.profile.budget === 'medium' ? '💰💰 $800-$1200/month' : 
+                   user.profile.budget === 'high' ? '💰💰💰 $1200+/month' : 'N/A'}
+                </Text>
+              </View>
             </View>
           </View>
         )}
@@ -281,16 +277,20 @@ export default function ProfileScreen({ navigation }) {
               style={[styles.menuModalItem, { borderBottomColor: theme.border }]}
               onPress={() => {
                 setMenuVisible(false);
+                Linking.openURL('https://github.com/Yaar-2518/Roomeo').catch(err => {
+                  Alert.alert('Error', 'Could not open GitHub link');
+                });
               }}
             >
-              <Ionicons name="notifications-outline" size={24} color={theme.text} />
-              <Text style={[styles.menuModalItemText, { color: theme.text }]}>Notifications</Text>
+              <Ionicons name="logo-github" size={24} color={theme.text} />
+              <Text style={[styles.menuModalItemText, { color: theme.text }]}>View on GitHub</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={[styles.menuModalItem, { borderBottomColor: theme.border }]}
               onPress={() => {
                 setMenuVisible(false);
+                setTimeout(() => setAboutVisible(true), 300);
               }}
             >
               <Ionicons name="information-circle-outline" size={24} color={theme.text} />
@@ -315,6 +315,98 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* About Modal */}
+      <Modal
+        visible={aboutVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setAboutVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setAboutVisible(false)}
+        >
+          <View 
+            style={[styles.menuModal, { backgroundColor: theme.cardBackground }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.menuModalHeader}>
+              <Text style={[styles.menuModalTitle, { color: theme.text }]}>About Roomeo</Text>
+              <TouchableOpacity onPress={() => setAboutVisible(false)}>
+                <Ionicons name="close" size={28} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.aboutContent, { borderBottomColor: theme.border }]}>
+              <Ionicons name="home" size={48} color={theme.primary} style={styles.aboutIcon} />
+              <Text style={[styles.aboutTitle, { color: theme.text }]}>Roomeo</Text>
+              <Text style={[styles.aboutSubtitle, { color: theme.textSecondary }]}>Roommate Matching App</Text>
+            </View>
+
+            <View style={[styles.aboutSection, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.aboutLabel, { color: theme.textSecondary }]}>Version</Text>
+              <Text style={[styles.aboutValue, { color: theme.text }]}>1.0.0</Text>
+            </View>
+
+            <View style={[styles.aboutSection, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.aboutDescription, { color: theme.textSecondary }]}>
+                Find your perfect roommate based on compatibility, preferences, and lifestyle. Match with students who share similar habits and interests.
+              </Text>
+            </View>
+
+            <View style={styles.aboutFooter}>
+              <Text style={[styles.aboutCopyright, { color: theme.textTertiary }]}>
+                © 2025 Roomeo. All rights reserved.
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Custom Modals */}
+      <CustomModal
+        visible={logoutModal}
+        onClose={() => setLogoutModal(false)}
+        title="Logout"
+        message="Are you sure you want to logout?"
+        type="confirm"
+        confirmText="Logout"
+        cancelText="Cancel"
+        showCancel={true}
+        onConfirm={confirmLogout}
+      />
+
+      <CustomModal
+        visible={deleteModal}
+        onClose={() => setDeleteModal(false)}
+        title="Delete Account"
+        message="Are you absolutely sure? This action cannot be undone. All your data will be permanently deleted."
+        type="error"
+        confirmText="Delete"
+        cancelText="Cancel"
+        showCancel={true}
+        onConfirm={confirmDelete}
+      />
+
+      <CustomModal
+        visible={errorModal.visible}
+        onClose={() => setErrorModal({ visible: false, message: '' })}
+        title="Error"
+        message={errorModal.message}
+        type="error"
+        confirmText="OK"
+      />
+
+      <CustomModal
+        visible={successModal.visible}
+        onClose={() => setSuccessModal({ visible: false, message: '' })}
+        title="Success"
+        message={successModal.message}
+        type="success"
+        confirmText="OK"
+      />
     </View>
   );
 }
@@ -345,6 +437,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   infoCard: {
     flexDirection: 'row',
@@ -377,13 +472,23 @@ const styles = StyleSheet.create({
   },
   hobbyTag: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
   },
   hobbyTagText: {
-    color: '#fff',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  preferenceTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  preferenceText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -434,5 +539,47 @@ const styles = StyleSheet.create({
     marginLeft: 16,
     fontWeight: '600',
     flex: 1,
+  },
+  aboutContent: {
+    alignItems: 'center',
+    padding: 24,
+    borderBottomWidth: 1,
+  },
+  aboutIcon: {
+    marginBottom: 12,
+  },
+  aboutTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  aboutSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  aboutSection: {
+    padding: 18,
+    borderBottomWidth: 1,
+  },
+  aboutLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  aboutValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  aboutDescription: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  aboutFooter: {
+    padding: 18,
+    alignItems: 'center',
+  },
+  aboutCopyright: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
 });

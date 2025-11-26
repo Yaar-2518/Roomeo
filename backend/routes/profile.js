@@ -26,6 +26,9 @@ router.post('/', authMiddleware, async (req, res) => {
       // Create new profile
       profile = new Profile(profileData);
       await profile.save();
+      
+      // Link profile to user
+      await User.findByIdAndUpdate(req.userId, { profile: profile._id });
     }
 
     // Update user's hasCompletedProfile flag

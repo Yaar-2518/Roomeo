@@ -21,6 +21,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  profile: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Profile'
+  },
   hasCompletedProfile: {
     type: Boolean,
     default: false

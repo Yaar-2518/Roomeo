@@ -5,9 +5,9 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   RefreshControl,
 } from 'react-native';
+import CustomModal from '../components/CustomModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -19,6 +19,9 @@ export default function RequestsScreen() {
   const [accepted, setAccepted] = useState([]);
   const [activeTab, setActiveTab] = useState('received'); // received, sent, accepted
   const [refreshing, setRefreshing] = useState(false);
+  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  const [successModal, setSuccessModal] = useState({ visible: false, message: '' });
+  const [confirmModal, setConfirmModal] = useState({ visible: false, requestId: null, status: null, name: '' });
 
   useEffect(() => {
     fetchRequests();
@@ -42,26 +45,20 @@ export default function RequestsScreen() {
   };
 
   const handleRequest = async (requestId, status, name) => {
-    const action = status === 'accepted' ? 'accept' : 'reject';
-    Alert.alert(
-      'Confirm',
-      `${action === 'accept' ? 'Accept' : 'Reject'} request from ${name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: action === 'accept' ? 'Accept' : 'Reject',
-          onPress: async () => {
-            try {
-              await api.put(`/matches/requests/${requestId}`, { status });
-              Alert.alert('Success', `Request ${status}!`);
-              fetchRequests();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to update request');
-            }
-          },
-        },
-      ]
-    );
+    setConfirmModal({ visible: true, requestId, status, name });
+  };
+
+  const handleConfirmAction = async () => {
+    const { requestId, status } = confirmModal;
+    setConfirmModal({ visible: false, requestId: null, status: null, name: '' });
+
+    try {
+      await api.put(`/matches/requests/${requestId}`, { status });
+      setSuccessModal({ visible: true, message: `Request ${status}!` });
+      fetchRequests();
+    } catch (error) {
+      setErrorModal({ visible: true, message: 'Failed to update request' });
+    }
   };
 
   const renderReceivedRequest = ({ item }) => {
@@ -111,23 +108,46 @@ export default function RequestsScreen() {
 
   const renderSentRequest = ({ item }) => {
     if (!item.receiver) return null;
+    
+    const getStatusColor = (status) => {
+      if (status === 'accepted') return '#34C759';
+      if (status === 'rejected') return '#FF3B30';
+      return '#FF9500';
+    };
+
     return (
-      <View style={[styles.requestCard, { backgroundColor: theme.cardBackground, shadowColor: theme.isDark ? '#000' : '#000' }]}>
+      <View style={[
+        styles.requestCard, 
+        { 
+          backgroundColor: theme.cardBackground, 
+          shadowColor: theme.isDark ? '#000' : '#000',
+          borderWidth: item.status === 'accepted' || item.status === 'rejected' ? 2 : 0,
+          borderColor: getStatusColor(item.status),
+          shadowColor: item.status === 'accepted' || item.status === 'rejected' ? getStatusColor(item.status) : (theme.isDark ? '#000' : '#000'),
+          shadowOpacity: item.status === 'accepted' || item.status === 'rejected' ? 0.4 : 0.1,
+          shadowRadius: item.status === 'accepted' || item.status === 'rejected' ? 8 : 4,
+        }
+      ]}>
         <View style={styles.requestHeader}>
-          <View>
+          <View style={styles.requestInfo}>
             <Text style={[styles.requestName, { color: theme.text }]}>{item.receiver.name}</Text>
             <Text style={[styles.requestEmail, { color: theme.textSecondary }]}>{item.receiver.email}</Text>
           </View>
-        <View style={[
-          styles.statusBadge,
-          item.status === 'accepted' && styles.acceptedBadge,
-          item.status === 'rejected' && styles.rejectedBadge,
-        ]}>
-          <Text style={styles.statusText}>{item.status}</Text>
+          <View style={[
+            styles.statusBadge,
+            { 
+              backgroundColor: `${getStatusColor(item.status)}20`,
+              borderColor: getStatusColor(item.status),
+              borderWidth: 1,
+            }
+          ]}>
+            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+              {item.status}
+            </Text>
+          </View>
         </View>
+        <Text style={[styles.requestMessage, { color: theme.textSecondary }]}>{item.message}</Text>
       </View>
-      <Text style={[styles.requestMessage, { color: theme.textSecondary }]}>{item.message}</Text>
-    </View>
     );
   };
 
@@ -215,6 +235,36 @@ export default function RequestsScreen() {
           </View>
         }
       />
+
+      <CustomModal
+        visible={errorModal.visible}
+        onClose={() => setErrorModal({ visible: false, message: '' })}
+        title="Error"
+        message={errorModal.message}
+        type="error"
+        confirmText="OK"
+      />
+
+      <CustomModal
+        visible={successModal.visible}
+        onClose={() => setSuccessModal({ visible: false, message: '' })}
+        title="Success"
+        message={successModal.message}
+        type="success"
+        confirmText="OK"
+      />
+
+      <CustomModal
+        visible={confirmModal.visible}
+        onClose={() => setConfirmModal({ visible: false, requestId: null, status: null, name: '' })}
+        title="Confirm Action"
+        message={`${confirmModal.status === 'accepted' ? 'Accept' : 'Reject'} request from ${confirmModal.name}?`}
+        type="confirm"
+        onConfirm={handleConfirmAction}
+        confirmText={confirmModal.status === 'accepted' ? 'Accept' : 'Reject'}
+        cancelText="Cancel"
+        showCancel={true}
+      />
     </View>
   );
 }
@@ -266,7 +316,12 @@ const styles = StyleSheet.create({
   requestHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 10,
+  },
+  requestInfo: {
+    flex: 1,
+    paddingRight: 10,
   },
   requestName: {
     fontSize: 16,
@@ -306,17 +361,9 @@ const styles = StyleSheet.create({
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 15,
-    backgroundColor: '#FF9500',
-  },
-  acceptedBadge: {
-    backgroundColor: '#34C759',
-  },
-  rejectedBadge: {
-    backgroundColor: '#FF3B30',
+    borderRadius: 12,
   },
   statusText: {
-    color: '#fff',
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'capitalize',

@@ -9,6 +9,7 @@ import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import QuestionnaireScreen from './src/screens/QuestionnaireScreen';
 import MatchesScreen from './src/screens/MatchesScreen';
 import RequestsScreen from './src/screens/RequestsScreen';
@@ -24,6 +25,7 @@ function AuthStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     </Stack.Navigator>
   );
 }
@@ -65,8 +67,8 @@ function MainTabs() {
         component={MatchesScreen}
         options={{
           tabBarLabel: 'Matches',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "search" : "search-outline"} size={size || 24} color={color || '#667eea'} />
           ),
         }}
       />
@@ -75,8 +77,8 @@ function MainTabs() {
         component={RequestsScreen}
         options={{
           tabBarLabel: 'Requests',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="mail" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "mail" : "mail-outline"} size={size || 24} color={color || '#667eea'} />
           ),
         }}
       />
@@ -85,8 +87,8 @@ function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? "person" : "person-outline"} size={size || 24} color={color || '#667eea'} />
           ),
         }}
       />

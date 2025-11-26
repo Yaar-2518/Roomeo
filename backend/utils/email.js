@@ -15,15 +15,15 @@ const generateOTP = () => {
 };
 
 // Send OTP email
-const sendOTPEmail = async (email, otp) => {
+const sendOTPEmail = async (email, otp, purpose = 'Email Verification') => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Roommate Finder - Email Verification OTP',
+    subject: `Roommate Finder - ${purpose} OTP`,
     html: `
       <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #667eea;">Roommate Finder</h2>
-        <p>Your OTP for email verification is:</p>
+        <p>Your OTP for ${purpose.toLowerCase()} is:</p>
         <h1 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                    color: white; 
                    padding: 20px; 
@@ -41,10 +41,15 @@ const sendOTPEmail = async (email, otp) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
+    console.log('Attempting to send email to:', email);
+    console.log('Using email account:', process.env.EMAIL_USER);
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully:', info.messageId);
     return true;
   } catch (error) {
-    console.error('Email send error:', error);
+    console.error('❌ Email send error details:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Full error:', error);
     return false;
   }
 };

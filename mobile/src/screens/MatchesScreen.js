@@ -5,9 +5,9 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   RefreshControl,
 } from 'react-native';
+import CustomModal from '../components/CustomModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -17,6 +17,9 @@ export default function MatchesScreen({ navigation }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [errorModal, setErrorModal] = useState({ visible: false, message: '' });
+  const [successModal, setSuccessModal] = useState({ visible: false, message: '' });
+  const [confirmModal, setConfirmModal] = useState({ visible: false, userId: null, name: '' });
 
   useEffect(() => {
     fetchMatches();
@@ -28,7 +31,7 @@ export default function MatchesScreen({ navigation }) {
       const response = await api.get('/matches');
       setMatches(response.data.matches);
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to load matches');
+      setErrorModal({ visible: true, message: error.response?.data?.error || 'Failed to load matches' });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -36,28 +39,23 @@ export default function MatchesScreen({ navigation }) {
   };
 
   const sendRequest = async (userId, name) => {
-    Alert.alert(
-      'Send Request',
-      `Send a roommate request to ${name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send',
-          onPress: async () => {
-            try {
-              await api.post('/matches/request', {
-                receiverId: userId,
-                message: 'Hi! I think we would be great roommates!',
-              });
-              Alert.alert('Success', 'Request sent successfully!');
-              fetchMatches();
-            } catch (error) {
-              Alert.alert('Error', error.response?.data?.error || 'Failed to send request');
-            }
-          },
-        },
-      ]
-    );
+    setConfirmModal({ visible: true, userId, name });
+  };
+
+  const handleConfirmSend = async () => {
+    const { userId } = confirmModal;
+    setConfirmModal({ visible: false, userId: null, name: '' });
+
+    try {
+      await api.post('/matches/request', {
+        receiverId: userId,
+        message: 'Hi! I think we would be great roommates!',
+      });
+      setSuccessModal({ visible: true, message: 'Request sent successfully!' });
+      fetchMatches();
+    } catch (error) {
+      setErrorModal({ visible: true, message: error.response?.data?.error || 'Failed to send request' });
+    }
   };
 
   const getScoreColor = (score) => {
@@ -66,48 +64,55 @@ export default function MatchesScreen({ navigation }) {
     return '#FF3B30';
   };
 
-  const renderMatch = ({ item }) => (
-    <View style={[styles.matchCard, { backgroundColor: theme.cardBackground, shadowColor: theme.isDark ? '#000' : '#000' }]}>
-      <View style={styles.matchHeader}>
-        <View>
-          <Text style={[styles.matchName, { color: theme.text }]}>{item.name}</Text>
-          <Text style={[styles.matchInfo, { color: theme.textSecondary }]}>
-            {item.age} years • {item.major} • {item.year} year
-          </Text>
-        </View>
-        <View style={[styles.scoreBox, { backgroundColor: getScoreColor(item.score) }]}>
-          <Text style={styles.scoreText}>{item.score}%</Text>
-        </View>
-      </View>
+  const renderMatch = ({ item }) => {
+    const formatBudget = (budget) => {
+      if (!budget) return 'Not specified';
+      return budget.charAt(0).toUpperCase() + budget.slice(1);
+    };
 
-      <View style={styles.hobbiesContainer}>
-        {item.hobbies?.map((hobby, index) => (
-          <View key={index} style={[styles.hobbyTag, { backgroundColor: theme.isDark ? '#1a4d5c' : '#E8F4F8' }]}>
-            <Text style={[styles.hobbyText, { color: theme.primary }]}>{hobby}</Text>
+    return (
+      <View style={[styles.matchCard, { backgroundColor: theme.cardBackground, shadowColor: theme.isDark ? '#000' : '#000' }]}>
+        <View style={styles.matchHeader}>
+          <View style={styles.matchInfo}>
+            <Text style={[styles.matchName, { color: theme.text }]}>{item.name}</Text>
+            <Text style={[styles.matchSubInfo, { color: theme.textSecondary }]}>
+              {item.age} years • {item.major} • {item.year} year
+            </Text>
           </View>
-        ))}
-      </View>
+          <View style={[styles.scoreBox, { backgroundColor: `${getScoreColor(item.score)}20` }]}>
+            <Text style={[styles.scoreText, { color: getScoreColor(item.score) }]}>{item.score}%</Text>
+          </View>
+        </View>
 
-      <View style={styles.budgetRow}>
-        <Text style={[styles.budgetText, { color: theme.textSecondary }]}>💰 Budget: {item.budget}</Text>
-      </View>
+        <View style={styles.hobbiesContainer}>
+          {item.hobbies?.map((hobby, index) => (
+            <View key={index} style={[styles.hobbyTag, { backgroundColor: theme.isDark ? '#1a4d5c' : '#E8F4F8' }]}>
+              <Text style={[styles.hobbyText, { color: theme.primary }]}>{hobby}</Text>
+            </View>
+          ))}
+        </View>
 
-      <TouchableOpacity
-        style={styles.requestButton}
-        onPress={() => sendRequest(item.userId, item.name)}
-        activeOpacity={0.8}
-      >
-        <LinearGradient
-          colors={theme.buttonGradient}
-          style={styles.requestButtonGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+        <View style={styles.budgetRow}>
+          <Text style={[styles.budgetText, { color: theme.textSecondary }]}>💰 Budget: {formatBudget(item.budget)}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.requestButton}
+          onPress={() => sendRequest(item.userId, item.name)}
+          activeOpacity={0.8}
         >
-          <Text style={styles.requestButtonText}>Send Request 📨</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </View>
-  );
+          <LinearGradient
+            colors={theme.buttonGradient}
+            style={styles.requestButtonGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <Text style={styles.requestButtonText}>Send Request 📨</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   if (loading && matches.length === 0) {
     return (
@@ -151,6 +156,36 @@ export default function MatchesScreen({ navigation }) {
           </View>
         }
       />
+
+      <CustomModal
+        visible={errorModal.visible}
+        onClose={() => setErrorModal({ visible: false, message: '' })}
+        title="Error"
+        message={errorModal.message}
+        type="error"
+        confirmText="OK"
+      />
+
+      <CustomModal
+        visible={successModal.visible}
+        onClose={() => setSuccessModal({ visible: false, message: '' })}
+        title="Success"
+        message={successModal.message}
+        type="success"
+        confirmText="OK"
+      />
+
+      <CustomModal
+        visible={confirmModal.visible}
+        onClose={() => setConfirmModal({ visible: false, userId: null, name: '' })}
+        title="Send Request"
+        message={`Send a roommate request to ${confirmModal.name}?`}
+        type="confirm"
+        onConfirm={handleConfirmSend}
+        confirmText="Send"
+        cancelText="Cancel"
+        showCancel={true}
+      />
     </View>
   );
 }
@@ -193,25 +228,31 @@ const styles = StyleSheet.create({
   matchHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 10,
+  },
+  matchInfo: {
+    flex: 1,
+    paddingRight: 10,
   },
   matchName: {
     fontSize: 18,
     fontWeight: '600',
   },
-  matchInfo: {
+  matchSubInfo: {
     fontSize: 14,
     marginTop: 5,
   },
   scoreBox: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   scoreText: {
-    color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
   },
   hobbiesContainer: {
     flexDirection: 'row',
